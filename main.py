@@ -35,7 +35,7 @@ async def main(bus, port):
 
 try:
     if platform == "linux" or platform == "linux2":
-        channelStr = os.environ.get('CAN_PORT', args.device)
+        channelStr = os.environ.get('CAN_PORT', args.can)
         bus = can.interface.Bus(bustype='socketcan', channel=channelStr, bitrate=500000)
         asyncio.run(main(bus, port=args.port))
     elif platform == "win32":
