@@ -3,13 +3,15 @@ import can
 
 
 CONNECTIONS = list()
-collect_messages = list()
 
 
 class CanServerProtocol(asyncio.Protocol):
     def __init__(self, bus):
         self.transport = None
         self.bus = bus
+        self.id_message = bytearray(b'')
+        self.size = bytearray(b'')
+        self.data_message = bytearray(b'')
 
     def connection_made(self, transport):
         peername = transport.get_extra_info('peername')
@@ -18,28 +20,22 @@ class CanServerProtocol(asyncio.Protocol):
         CONNECTIONS.append(self.transport)
 
     def data_received(self, data):
-        standard_size = 84
-        if len(data) % standard_size == 0:
-            message_length = (len(data)) / standard_size
-            for j in range(int(message_length)):
-                id_message = bytearray(b'')
-                size = bytearray(b'')
-                data_message = bytearray(b'')
-                for i in range(4):
-                    id_message += data[i + j * standard_size].to_bytes(1, byteorder='little')
-                    size += data[4 + i + j * standard_size].to_bytes(1, byteorder='little')
-                id_message = int.from_bytes(id_message, 'little')
-                size = int.from_bytes(size, 'little')
-                for i in range(size):
-                    data_message += data[i + 12 + j * standard_size].to_bytes(1, byteorder='little')
-                collect_messages.append(can.Message(arbitration_id=id_message, data=data_message, is_extended_id=False))
-            for msg in collect_messages:
-                try:
-                    self.bus.send(msg)
-                except self.bus.CanError:
-                    print("Error! Message did not send")
-        else:
-            print("Server received not CAN Message")
+        message_length = (len(data)) / 84
+        for j in range(int(message_length)):
+            for i in range(4):
+                self.id_message += data[i + j * 84].to_bytes(1, byteorder='little')
+                self.size += data[4 + i + j * 84].to_bytes(1, byteorder='little')
+            self.id_message = int.from_bytes(self.id_message, 'little')
+            self.size = int.from_bytes(self.size, 'little')
+            for i in range(self.size):
+                self.data_message += data[i + 12 + j * 84].to_bytes(1, byteorder='little')
+            try:
+                self.bus.send(can.Message(arbitration_id=self.id_message, data=self.data_message, is_extended_id=False))
+            except self.bus.CanError:
+                print("Error! Message did not send")
+            self.id_message = bytearray(b'')
+            self.size = bytearray(b'')
+            self.data_message = bytearray(b'')
 
     def connection_lost(self, exc):
         print('The server closed the connection ', self.transport.get_extra_info('peername'))

@@ -21,12 +21,21 @@ async def send_to_connections(msg):
             client.write(b.to_bytes(1, byteorder='little'))
 
 
-async def main(bus, loop) -> None:
-    reader = can.AsyncBufferedReader()
+async def main(bus, loop, logs) -> None:
+    if logs == 'ON':
+        reader = can.AsyncBufferedReader()
+        logger = can.Logger("logfile.asc")
 
-    listeners: List = [
-        reader,
-    ]
+        listeners: List = [
+            reader,
+            logger,
+        ]
+    else:
+        reader = can.AsyncBufferedReader()
+
+        listeners: List = [
+            reader,
+        ]
     notifier = can.Notifier(bus, listeners, loop=loop)
     while True:
         msg = await reader.get_message()
